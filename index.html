@@ -85,7 +85,9 @@ const ID='1ZF_cjeq_yWiYIpvyMZO3hratsPN-KRTexGV_ti3TLjE';
 const SHEETS=[['متابعة الحامل','🤰'],['متابعة الاطفال','👶'],['الولادة','🤱'],['الوفيات','🕊️']];
 const MN=['يناير','فبراير','مارس','ابريل','مايو','يونيو','يوليو','اغسطس','سبتمبر','اكتوبر','نوفمبر','ديسمبر'];
 const SHOW={ابريل:'أبريل',اغسطس:'أغسطس',اكتوبر:'أكتوبر'};
-const mname=m=>SHOW[m]||m;
+const ALL='__all';
+const mname=m=>m==ALL?'إجمالي كل الشهور':(SHOW[m]||m);
+const inSel=x=>sel==ALL||x.m==sel;
 const norm=s=>String(s??'').trim().replace(/[أإآ]/g,'ا');
 const $=id=>document.getElementById(id);
 const AD='٠١٢٣٤٥٦٧٨٩';
@@ -156,10 +158,10 @@ const deps=D=>[...new Set(D.rows.map(r=>r.d))];
 function months(){return[...new Set(D0().rows.map(r=>r.m))].sort((a,b)=>MN.indexOf(a)-MN.indexOf(b))}
 function setup(keep){
   const D=D0(),ms=months();
-  if(!keep||!ms.includes(sel)){sel=ms[ms.length-1];cmp=ms[ms.length-2]||''}
+  if(!keep||(sel!=ALL&&!ms.includes(sel))){sel=ms[ms.length-1];cmp=ms[ms.length-2]||''}
   if(dp&&!deps(D).includes(dp))dp='';
   $('tabs').innerHTML=SHEETS.map((s,i)=>`<button class="tab ${i==cur?'on':''}" data-i="${i}">${s[1]} ${s[0]}</button>`).join('');
-  $('dm').innerHTML='<option value="">كل الإدارات</option>'+deps(D).map(d=>`<option ${d==dp?'selected':''}>${d}</option>`).join('');
+   $('sm').innerHTML=[ALL,...ms].map(m=>`<option value="${m}" ${m==sel?'selected':''}>${mname(m)}</option>`).join('');
   $('sm').innerHTML=ms.map(m=>`<option value="${m}" ${m==sel?'selected':''}>${mname(m)}</option>`).join('');
   $('cm').innerHTML='<option value="">بدون مقارنة</option>'+ms.map(m=>`<option value="${m}" ${m==cmp?'selected':''}>${mname(m)}</option>`).join('');
   render();
@@ -170,7 +172,7 @@ function render(){
   const D=D0(),ic=SHEETS[cur][1],F=fRows(D);
   charts.forEach(c=>c.dispose());charts=[];
   const cards=D.cols.map((c,i)=>{
-    const r=isRatio(c),a=agg(F.filter(x=>x.m==sel),i,r),b=cmp?agg(F.filter(x=>x.m==cmp),i,r):null;
+    const r=isRatio(c),a=agg(F.filter(inSel),i,r),b=cmp&&sel!=ALL?agg(F.filter(x=>x.m==cmp),i,r):null;
     let dl='<div class="d ne">—</div>';
     if(a!=null&&b!=null){const df=a-b,p=b?df/b*100:0,up=df>0,good=isBad(c)?!up:up,cl=df==0?'ne':good?'up':'dn';
       dl=`<div class="d ${cl}">${df==0?'■':up?'▲':'▼'} ${fmt(Math.abs(df),r)} (${fmt(Math.abs(p),1)}٪) ${up?'زيادة':df<0?'نقص':'ثبات'} عن ${mname(cmp)}</div>`}
@@ -190,7 +192,7 @@ function drawOne(ci){
   $('w'+ci).className=view=='pie'?'tilt':'';
   const st=getComputedStyle(document.documentElement),tx=st.getPropertyValue('--tx').trim()||'#222',bd=st.getPropertyValue('--bd').trim();
   const ec=echarts.init(el);charts.push(ec);
-  const rows=deps(D).map(d=>{const x=D.rows.find(z=>z.d==d&&z.m==sel);return[d,x?x.v[ci]:0]});
+  const rows=deps(D).map(d=>{const x=agg(D.rows.filter(z=>z.d==d&&inSel(z)),ci,r);return[d,x||0]});
   const ax={axisLabel:{color:tx,...TS},splitLine:{lineStyle:{color:bd,type:'dashed'}}};
   if(view=='bar'){
     ec.setOption({textStyle:TS,tooltip:{formatter:p=>`${rows[p.dataIndex][0]}<br><b>${fmt(rows[p.dataIndex][1],r)}</b>`},grid:{top:40,bottom:75,left:55,right:20},
